@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音声入力SOAPノート - AIカルテ作成支援ツール</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-container">
+            <div class="logo-area">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" fill="currentColor"/>
+                    <path d="M19 10V11C19 14.87 15.87 18 12 18C8.13 18 5 14.87 5 11V10C5 9.45 4.55 9 4 9C3.45 9 3 9.45 3 10V11C3 15.42 6.18 19.1 10 19.82V21C10 21.55 10.45 22 11 22H13C13.55 22 14 21.55 14 21V19.82C17.82 19.1 21 15.42 21 11V10C21 9.45 20.55 9 20 9C19.45 9 19 9.45 19 10Z" fill="currentColor"/>
+                </svg>
+                <div class="title-meta">
+                    <h1>音声入力SOAPノート</h1>
+                    <p class="subtitle">AI Voice to SOAP Structure Assistant</p>
+                </div>
+            </div>
+            <div class="header-controls">
+                <div class="status-badge ready" id="recognition-status-badge">
+                    <span class="status-dot"></span>
+                    <span class="status-text" id="status-text">待機中</span>
+                </div>
+                <button class="btn btn-secondary btn-icon-only" id="btn-settings-toggle" title="AI設定を開く">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="header-icon"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- AI設定パネル（アコーディオン式） -->
+    <section class="settings-panel hidden" id="settings-panel">
+        <div class="settings-container">
+            <h3>AI設定</h3>
+            <div class="settings-grid">
+                <div class="settings-group">
+                    <label for="select-mode">変換モード</label>
+                    <select id="select-mode">
+                        <option value="keyword">キーワードマッチ（オフライン・無料）</option>
+                        <option value="gemini" selected>AI (Gemini API) - 高精度（推奨）</option>
+                        <option value="ollama">AI (Ollama) - 完全ローカル（プライバシー重視）</option>
+                    </select>
+                </div>
+                
+                <!-- Gemini設定 -->
+                <div class="settings-group" id="settings-gemini">
+                    <label for="input-api-key">Gemini API キー</label>
+                    <input type="password" id="input-api-key" placeholder="AI-zaSy... (ブラウザにのみ保存されます)">
+                    <p class="settings-help">Gemini APIキーはブラウザのlocalStorageに安全に保存されます。</p>
+                </div>
+
+                <!-- Ollama設定 -->
+                <div class="settings-group hidden" id="settings-ollama">
+                    <div class="ollama-fields">
+                        <div>
+                            <label for="input-ollama-url">接続先URL</label>
+                            <input type="text" id="input-ollama-url" value="http://localhost:11434">
+                        </div>
+                        <div>
+                            <label for="input-ollama-model">使用モデル名</label>
+                            <input type="text" id="input-ollama-model" value="gemma2">
+                        </div>
+                    </div>
+                    <p class="settings-help">ローカルPCでOllamaを起動し、CORS設定を行ってください。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <main class="app-container">
+        <!-- 音声入力・録音セクション -->
+        <section class="panel-section voice-panel">
+            <div class="panel-header">
+                <h2>音声入力とテキスト編集</h2>
+                <div class="panel-actions">
+                    <div class="specialization-tabs">
+                        <button class="tab-btn active" data-special="orthopedics">整形外科</button>
+                        <button class="tab-btn" data-special="internal">内科</button>
+                        <button class="tab-btn" data-special="general">一般</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel-body">
+                <!-- 録音コントローラー -->
+                <div class="recording-console">
+                    <button class="record-trigger" id="btn-record-toggle" title="録音を開始します">
+                        <div class="record-pulse-ring"></div>
+                        <div class="record-icon-wrapper">
+                            <!-- マイクアイコン (開始用) -->
+                            <svg class="icon-mic" id="icon-mic-start" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 14C13.66 14 15 12.66 15 11V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V11C9 12.66 10.34 14 12 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M19 10V11C19 14.87 15.87 18 12 18C8.13 18 5 14.87 5 11V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M12 18V22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            <!-- 停止アイコン (録音中用) -->
+                            <svg class="icon-stop hidden" id="icon-mic-stop" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"/>
+                            </svg>
+                        </div>
+                    </button>
+                    <div class="recording-instructions">
+                        <p class="instruction-main" id="record-instruction-main">「録音開始」ボタンを押して話してください</p>
+                        <p class="instruction-sub" id="record-instruction-sub">対象疾患：<strong id="special-label">整形外科</strong></p>
+                    </div>
+                </div>
+
+                <!-- リアルタイムテキスト表示エリア -->
+                <div class="transcript-container">
+                    <label for="transcript-textarea" class="visually-hidden">音声認識テキスト</label>
+                    <textarea 
+                        id="transcript-textarea" 
+                        placeholder="マイクから音声を入力するか、デモ文章を挿入してください。"
+                    ></textarea>
+                    
+                    <!-- リアルタイム音声認識プレビュー表示 (認識途中のテキスト用) -->
+                    <div class="interim-preview-box" id="interim-preview-box">
+                        <span class="preview-label">認識中...</span>
+                        <span class="preview-text" id="interim-preview-text"></span>
+                    </div>
+                </div>
+
+                <!-- アクションコントロール -->
+                <div class="control-actions">
+                    <button class="btn btn-secondary" id="btn-demo" title="デモ文章を挿入します">
+                        デモ文挿入
+                    </button>
+                    <button class="btn btn-secondary" id="btn-demo-sim" title="音声認識の動作をシミュレートします">
+                        シミュレーション
+                    </button>
+                    <button class="btn btn-danger" id="btn-clear">
+                        クリア
+                    </button>
+                    <button class="btn btn-primary" id="btn-convert">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        SOAP変換
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SOAP表示セクション -->
+        <section class="panel-section soap-panel">
+            <div class="panel-header">
+                <h2>SOAPカルテ出力</h2>
+                <div class="panel-actions">
+                    <button class="btn btn-success" id="btn-copy-soap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        <span>SOAPをコピペする</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel-body">
+                <!-- コピペ専用テキストエリア -->
+                <div class="copypaste-area">
+                    <div class="copypaste-header">
+                        <span>カルテ貼り付け用エディタ (直接編集・全選択コピー可能)</span>
+                    </div>
+                    <label for="copypaste-textarea" class="visually-hidden">コピペ用SOAPテキスト</label>
+                    <textarea id="copypaste-textarea" placeholder="SOAP変換を実行すると、ここにカルテ用テキストが整形されて表示されます。そのままコピー可能です。"></textarea>
+                </div>
+
+                <!-- ローディングインジケーター -->
+                <div class="loading-overlay hidden" id="loading-overlay">
+                    <div class="spinner"></div>
+                    <p>AIがSOAPカルテを作成中...</p>
+                </div>
+
+                <!-- 視覚的プレビュー -->
+                <div class="visual-preview-section">
+                    <h3 class="preview-title">カードビュープレビュー</h3>
+                    <div class="soap-grid">
+                        <!-- S Card (S / PMH / Allegy) -->
+                        <div class="soap-card card-s" id="card-subjective">
+                            <div class="card-header">
+                                <span class="badge badge-s">S</span>
+                                <h3>Subjective / 既往・アレルギー</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="preview-subgroup">
+                                    <div class="subgroup-title">S）主観的情報</div>
+                                    <p class="preview-content-text" id="preview-s">なし</p>
+                                </div>
+                                <div class="preview-subgroup">
+                                    <div class="subgroup-title">PMH：既往歴</div>
+                                    <p class="preview-content-text" id="preview-pmh">なし</p>
+                                </div>
+                                <div class="preview-subgroup">
+                                    <div class="subgroup-title">Allegy：アレルギー</div>
+                                    <p class="preview-content-text" id="preview-allegy">なし</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- O Card -->
+                        <div class="soap-card card-o" id="card-objective">
+                            <div class="card-header">
+                                <span class="badge badge-o">O</span>
+                                <h3>Objective (客観的情報)</h3>
+                            </div>
+                            <div class="card-body">
+                                <p class="preview-content-text" id="preview-o">なし</p>
+                            </div>
+                        </div>
+
+                        <!-- A/P Card -->
+                        <div class="soap-card card-ap" id="card-assessment-plan">
+                            <div class="card-header">
+                                <span class="badge badge-ap">A/P</span>
+                                <h3>Assessment / Plan (アセスメント・計画)</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="preview-content-text" id="preview-ap">
+                                    <p class="empty-state">変換を実行してください</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <div class="footer-container">
+            <p>&copy; 2026 音声入力SOAPノート - 整形外科・内科疾患特化型. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript File -->
+    <script src="app.js"></script>
+</body>
+</html>
