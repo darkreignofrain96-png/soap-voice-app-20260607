@@ -53,7 +53,11 @@
                 <!-- Gemini設定 -->
                 <div class="settings-group" id="settings-gemini">
                     <label for="input-api-key">Gemini API キー</label>
-                    <input type="password" id="input-api-key" placeholder="AI-zaSy... (ブラウザにのみ保存されます)">
+                    <div class="api-key-input-container">
+                        <input type="password" id="input-api-key" placeholder="AI-zaSy... (ブラウザにのみ保存されます)">
+                        <button class="btn btn-secondary btn-sm" id="btn-test-connection">接続テスト</button>
+                    </div>
+                    <span id="connection-test-result" class="connection-test-result"></span>
                     <p class="settings-help">Gemini APIキーはブラウザのlocalStorageに安全に保存されます。</p>
                 </div>
 
@@ -152,21 +156,49 @@
             <div class="panel-header">
                 <h2>SOAPカルテ出力</h2>
                 <div class="panel-actions">
-                    <button class="btn btn-success" id="btn-copy-soap">
+                    <button class="btn btn-success" id="btn-copy-soap" title="全パートを一括コピー">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                        <span>SOAPをコピペする</span>
+                        <span>全パート一括コピー</span>
                     </button>
                 </div>
             </div>
 
             <div class="panel-body">
-                <!-- コピペ専用テキストエリア -->
-                <div class="copypaste-area">
+                <!-- コピペ専用テキストエリア (3パート分割) -->
+                <div class="copypaste-section-wrapper">
                     <div class="copypaste-header">
-                        <span>カルテ貼り付け用エディタ (直接編集・全選択コピー可能)</span>
+                        <span>カルテ貼り付け用エディタ (各パートごとに編集・コピー可能)</span>
+                        <span class="ai-status-badge" id="ai-status-badge">モード: 未実行</span>
                     </div>
-                    <label for="copypaste-textarea" class="visually-hidden">コピペ用SOAPテキスト</label>
-                    <textarea id="copypaste-textarea" placeholder="SOAP変換を実行すると、ここにカルテ用テキストが整形されて表示されます。そのままコピー可能です。"></textarea>
+                    
+                    <div class="copypaste-split-container">
+                        <!-- S Part -->
+                        <div class="copypaste-part">
+                            <div class="part-header">
+                                <span class="part-title-label">Sパート (S / PMH / Allegy)</span>
+                                <button class="btn btn-secondary btn-sm btn-copy-part" data-part="s" title="Sパートをコピー">Sをコピー</button>
+                            </div>
+                            <textarea id="copypaste-s" placeholder="S）主観的情報..."></textarea>
+                        </div>
+
+                        <!-- O Part -->
+                        <div class="copypaste-part">
+                            <div class="part-header">
+                                <span class="part-title-label">Oパート (Objective)</span>
+                                <button class="btn btn-secondary btn-sm btn-copy-part" data-part="o" title="Oパートをコピー">Oをコピー</button>
+                            </div>
+                            <textarea id="copypaste-o" placeholder="O)客観的情報..."></textarea>
+                        </div>
+
+                        <!-- A/P Part -->
+                        <div class="copypaste-part">
+                            <div class="part-header">
+                                <span class="part-title-label">A/Pパート (Assessment / Plan)</span>
+                                <button class="btn btn-secondary btn-sm btn-copy-part" data-part="ap" title="A/Pパートをコピー">A/Pをコピー</button>
+                            </div>
+                            <textarea id="copypaste-ap" placeholder="A/P)評価・計画..."></textarea>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ローディングインジケーター -->

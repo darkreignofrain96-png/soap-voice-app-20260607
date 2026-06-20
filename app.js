@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const transcriptTextarea = document.getElementById('transcript-textarea');
     const interimPreviewBox = document.getElementById('interim-preview-box');
     const interimPreviewText = document.getElementById('interim-preview-text');
-    const copypasteTextarea = document.getElementById('copypaste-textarea');
     const loadingOverlay = document.getElementById('loading-overlay');
     
     const btnClear = document.getElementById('btn-clear');
@@ -91,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 "血圧は145の90mmHgで、両下肢に軽度の浮腫を認めます。",
                 "中途覚醒による睡眠障害と、高血圧のコントロール不良が原因と考えられます。",
                 "塩分制限および水分の適切な管理について指導を実施します。",
-                "かかりつけ医と降圧薬の調整を相談し、睡眠衛生指導を継続します。",
+                "かかりつけ医と降圧薬 of 調整を相談し、睡眠衛生指導を継続します。",
                 "2週間後に再度バイタルと浮腫の評価を行います。"
             ]
         }
@@ -341,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const mode = selectMode.value;
         let soapData = null;
+        let actualModeUsed = mode;
 
         try {
             if (mode === 'gemini') {
@@ -348,20 +348,20 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (mode === 'ollama') {
                 soapData = await callOllamaAPI(text);
             } else {
-                // キーワードフォールバック
                 soapData = runKeywordFallback(text);
             }
         } catch (error) {
             console.error('AI conversion error, falling back to keyword method:', error);
             showToast('AI接続エラーが発生したため、キーワード分類を実行します。');
             soapData = runKeywordFallback(text);
+            actualModeUsed = 'fallback';
         } finally {
             loadingOverlay.classList.add('hidden');
             updateStatus('success', '完了');
         }
 
         if (soapData) {
-            displaySOAP(soapData);
+            displaySOAP(soapData, actualModeUsed);
         }
     }
 
@@ -377,16 +377,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const systemPrompt = `あなたは優秀な医療機関の医療事務、理学療法士、または看護師の電子カルテ作成支援AIです。
 対象疾患カテゴリー: 【${CLINICAL_DATA[currentSpecialty].label}】
 
-与えられた患者の発話書き起こし、または医療従事者の音声メモから情報を抽出し、臨床的に標準的なカルテ用語（簡潔な日本語・英語混在）に整形・要約し、指定されたJSONスキーマに従って出力してください。
+【最重要タスク: 音声認識エラーの補正と医学用語への翻訳】
+入力されるテキストは音声認識で文字起こしされたものであるため、誤認識（漢字の誤り、同音異義語、ひらがな表記など）が多く含まれています。臨床的な文脈に基づいて適切な医学用語に補正してください。
+例：
+- 「ロム」「ろむ」 ➔ 「ROM」（または関節可動域）
+- 「エムエムティー」「えむえむてぃー」 ➔ 「MMT」（または徒手筋力テスト）
+- 「腹が張る」「お腹が痛い」 ➔ 「腹部膨満感」「腹痛の訴え」
+- 「はんりょくつう」「繁盛痛」 （腹痛時） ➔ 「反跳痛」
+- 「けつあつ120の80」 ➔ 「血圧 120/80 mmHg」
+- 「熱がある」 ➔ 「発熱」「体温 38.0度」など文脈で補正
+また、患者の「話し言葉」やセラピストの「口頭メモ」を、電子カルテにそのまま貼り付け可能な簡潔でプロフェッショナルな「医学・看護・リハビリの臨床用語」（日本語と英語・アルファベット記号の混在歓迎）に翻訳・整理してください。
+
+与えられた患者の発話書き起こし、または医療従事者の音声メモから情報を抽出し、要約して指定されたJSONスキーマに従って出力してください。
 以下のルールを必ず守ってください：
-- S（主観的情報）: 患者の主訴、自覚症状を簡潔にまとめてください。
+- S（主観的情報）: 患者の主訴、自覚症状を臨床用語で簡潔にまとめてください。
 - PMH（既往歴）: 既往歴、病歴があれば抽出してください。明確な言及がない場合は「なし」としてください。
 - Allegy（アレルギー）: アレルギー情報があれば抽出してください。明確な言及がない場合は「なし」としてください。
-- O（客観的情報）: 身体診察所見、バイタルサイン、検査結果、関節可動域（ROM）、筋力（MMT）、画像所見などを簡潔にまとめてください。
-- AP（アセスメント/プラン）: 評価（疑われる診断名・病態）と、それに対応する治療・処置・リハビリ・検査・指導・今後の計画のペアのリストを作成してください。診断名は必ず「＃病名疑い」や「＃症状」などのように「＃」から始めてください。
-
-整形外科の場合は、疼痛部位、誘発テスト、ROM、MMT、歩行、画像所見を重視してください。
-内科の場合は、主要症状、バイタル、腹部などの身体所見、検査結果、アレルギー、処薬・処置計画を重視してください。`;
+- O（客観的情報）: 身体診察所見、バイタルサイン、検査結果、ROM、MMT、画像所見などを正確な臨床用語・単位表記で簡潔にまとめてください。
+- AP（アセスメント/プラン）: 評価（疑われる診断名・病態）と、それに対応する治療・処置・リハビリ・検査・指導・今後の計画のペアのリストを作成してください。診断名は必ず「＃病名疑い」や「＃症状」などのように「＃」から始めてください。`;
 
         const requestBody = {
             contents: [
@@ -451,18 +459,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const ollamaUrl = inputOllamaUrl.value.trim() || 'http://localhost:11434';
         const ollamaModel = inputOllamaModel.value.trim() || 'gemma2';
 
-        const systemPrompt = `You are a medical scribe assistant.
+        const systemPrompt = `You are a professional medical scribe assistant.
 Analyze the clinical text and extract SOAP format.
 Target Specialty: ${CLINICAL_DATA[currentSpecialty].label}
 
-You must return a JSON object containing EXACTLY these keys: "S", "PMH", "Allegy", "O", "AP".
-- "S": string, patient subjective complaints.
-- "PMH": string, past medical history. Default to "なし" if not mentioned.
-- "Allegy": string, allergy information. Default to "なし" if not mentioned.
-- "O": string, objective medical metrics, vitals, exam findings.
-- "AP": array of objects. Each object has:
-  - "diagnosis": string, starting with "＃" (e.g. "＃変形性膝関節症疑い")
-  - "plans": array of strings, plans for that diagnosis.
+[CRITICAL TASK: Correction of speech recognition errors & translation to professional medical terms]
+The input is speech-to-text transcript. It contains homophone errors, typos, and colloquial spoken Japanese.
+You MUST:
+1. Correct typos and speech-to-text errors based on medical context (e.g., convert "ロム" or "ろむ" to "ROM", "エムエムティー" to "MMT", "はんりょくつう" or "繁盛痛" to "反跳痛" in case of abdominal pain).
+2. Translate colloquial patient statements and casual voice notes into professional, concise, clinical/medical terminology suitable for electronic medical records (e.g., convert "膝が痛いと言っている" to "膝関節痛 of 訴えあり", "お腹が痛い" to "腹痛 of 訴え").
+3. Format output into the JSON schema keys: "S", "PMH", "Allegy", "O", "AP".
 
 Response must be pure JSON ONLY. No markdown wrapping. Output in Japanese.`;
 
@@ -493,8 +499,38 @@ Response must be pure JSON ONLY. No markdown wrapping. Output in Japanese.`;
 
     // 3. キーワードベースのローカルフォールバック処理
     function runKeywordFallback(text) {
+        // 音声認識の表記揺れ・誤変換の簡易補正辞書
+        const correctionDict = {
+            'ろむ': 'ROM',
+            'ロム': 'ROM',
+            'えむえむてぃー': 'MMT',
+            'エムエムティー': 'MMT',
+            'アレルギー': 'アレルギー',
+            'あれるぎー': 'アレルギー',
+            '既往歴': '既往歴',
+            'きおうれき': '既往歴',
+            'ばいたる': 'バイタル',
+            'じしゅとれ': '自主トレ',
+            '自主トレ': '自主トレ',
+            'たいいん': '退院',
+            'しびれ': 'しびれる',
+            'うったえ': '訴え',
+            'はんりょくつう': '反跳痛',
+            'はんちょうつう': '反跳痛',
+            '繁盛痛': '反跳痛',
+            '血圧': '血圧',
+            '体温': '体温',
+            '脈拍': '脈拍'
+        };
+
+        let correctedText = text;
+        for (const [wrong, right] of Object.entries(correctionDict)) {
+            const regex = new RegExp(wrong, 'g');
+            correctedText = correctedText.replace(regex, right);
+        }
+
         // 文分割
-        const sentences = text
+        const sentences = correctedText
             .split(/([。！？\n])/)
             .reduce((acc, current, index, array) => {
                 if (index % 2 === 0) {
@@ -514,37 +550,29 @@ Response must be pure JSON ONLY. No markdown wrapping. Output in Japanese.`;
         let allegyArray = [];
 
         sentences.forEach(sentence => {
-            let matched = false;
-
             // アレルギー判定
             if (KEYWORDS.Allegy.some(k => sentence.includes(k))) {
                 allegyArray.push(sentence);
-                matched = true;
             }
             // 既往歴判定
             else if (KEYWORDS.PMH.some(k => sentence.includes(k))) {
                 pmhArray.push(sentence);
-                matched = true;
             }
             // 客観判定 (O)
             else if (KEYWORDS.O.some(k => sentence.includes(k))) {
                 oArray.push(sentence);
-                matched = true;
             }
             // 計画判定 (P)
             else if (KEYWORDS.P.some(k => sentence.includes(k))) {
                 pArray.push(sentence);
-                matched = true;
             }
             // アセスメント判定 (A)
             else if (KEYWORDS.A.some(k => sentence.includes(k))) {
                 aArray.push(sentence);
-                matched = true;
             }
             // 主観判定 (S)
             else if (KEYWORDS.S.some(k => sentence.includes(k))) {
                 sArray.push(sentence);
-                matched = true;
             }
         });
 
@@ -558,20 +586,17 @@ Response must be pure JSON ONLY. No markdown wrapping. Output in Japanese.`;
         });
 
         // アセスメントとプランのペアを作る (A/Pのフォーマット)
-        // 疑われる病名がキーワードから分からない場合は、疾患カテゴリに合わせたプレースホルダーを作成
         let diagnosisTitle = '＃病態・動作分析の評価';
         if (currentSpecialty === 'orthopedics') {
             diagnosisTitle = '＃運動器機能障害の疑い';
-            // 文脈から「関節症」などがあれば抽出
-            const kneeMatch = text.includes('膝');
+            const kneeMatch = correctedText.includes('膝');
             if (kneeMatch) diagnosisTitle = '＃変形性膝関節症疑い';
         } else if (currentSpecialty === 'internal') {
             diagnosisTitle = '＃急性腹症・内科疾患疑い';
-            const appendMatch = text.includes('虫垂');
+            const appendMatch = correctedText.includes('虫垂');
             if (appendMatch) diagnosisTitle = '＃虫垂炎疑い';
         }
 
-        // Aの文章もアセスメントの補足文として追加
         const plans = [...aArray, ...pArray];
         if (plans.length === 0) {
             plans.push('指導および介入の継続');
@@ -594,7 +619,29 @@ Response must be pure JSON ONLY. No markdown wrapping. Output in Japanese.`;
     // ==========================================================================
     // 結果表示とコピペエリアへの流し込み
     // ==========================================================================
-    function displaySOAP(data) {
+    const aiStatusBadge = document.getElementById('ai-status-badge');
+
+    function updateAIStatusBadge(mode) {
+        aiStatusBadge.className = 'ai-status-badge'; // reset
+        if (mode === 'gemini') {
+            aiStatusBadge.textContent = 'モード: AI (Gemini)';
+            aiStatusBadge.classList.add('mode-gemini');
+        } else if (mode === 'ollama') {
+            aiStatusBadge.textContent = 'モード: AI (Ollama)';
+            aiStatusBadge.classList.add('mode-ollama');
+        } else if (mode === 'keyword') {
+            aiStatusBadge.textContent = 'モード: キーワード分類';
+            aiStatusBadge.classList.add('mode-keyword');
+        } else if (mode === 'fallback') {
+            aiStatusBadge.textContent = 'モード: キーワード (AIエラー後フォールバック)';
+            aiStatusBadge.classList.add('mode-fallback');
+        }
+    }
+
+    function displaySOAP(data, actualModeUsed) {
+        // AIステータスバッジの更新
+        updateAIStatusBadge(actualModeUsed);
+
         // 1. プレビューカードの更新
         previewS.textContent = data.S || 'なし';
         previewPmh.textContent = data.PMH || 'なし';
@@ -629,31 +676,29 @@ Response must be pure JSON ONLY. No markdown wrapping. Output in Japanese.`;
             previewAp.textContent = 'なし';
         }
 
-        // 2. コピペ用テキストエリアの構築 (ご指定のコピペフォーマット)
-        let formattedText = `S）${data.S}\n`;
-        formattedText += `PMH：${data.PMH}\n`;
-        formattedText += `Allegy：${data.Allegy}\n`;
-        formattedText += `O)${data.O}\n`;
-        formattedText += `A/P)\n`;
+        // 2. コピペ用テキストエリアの構築 (3パート分割)
+        let sText = `S）${data.S}\nPMH：${data.PMH}\nAllegy：${data.Allegy}`;
+        let oText = `O)${data.O}`;
+        let apText = `A/P)\n`;
         
         if (data.AP && Array.isArray(data.AP)) {
             data.AP.forEach(pair => {
-                // ＃が重複しないようにトリム
                 const diagTitle = pair.diagnosis.startsWith('＃') || pair.diagnosis.startsWith('#')
                     ? pair.diagnosis 
                     : `＃${pair.diagnosis}`;
                 
-                formattedText += `${diagTitle}\n`;
+                apText += `${diagTitle}\n`;
                 pair.plans.forEach(plan => {
-                    formattedText += `${plan}\n`;
+                    apText += `${plan}\n`;
                 });
             });
         }
+
+        document.getElementById('copypaste-s').value = sText.trim();
+        document.getElementById('copypaste-o').value = oText.trim();
+        document.getElementById('copypaste-ap').value = apText.trim();
         
-        // 末尾の余分な改行をトリム
-        copypasteTextarea.value = formattedText.trim();
-        
-        // ハイライトの処理 (プレビューカードにキーワードがあれば <mark> タグを付与)
+        // ハイライトの処理
         highlightKeywords(previewS, KEYWORDS.S);
         highlightKeywords(previewPmh, KEYWORDS.PMH);
         highlightKeywords(previewAllegy, KEYWORDS.Allegy);
@@ -672,23 +717,30 @@ Response must be pure JSON ONLY. No markdown wrapping. Output in Japanese.`;
         element.innerHTML = text;
     }
 
-    // コピペ用テキストのコピー機能
+    // 全パート一括コピー機能
     function copySoapToClipboard() {
-        const text = copypasteTextarea.value.trim();
-        if (!text) {
-            showToast('コピーするテキストがありません。');
+        const sVal = document.getElementById('copypaste-s').value.trim();
+        const oVal = document.getElementById('copypaste-o').value.trim();
+        const apVal = document.getElementById('copypaste-ap').value.trim();
+
+        if (!sVal && !oVal && !apVal) {
+            showToast('コピーする内容がありません。');
             return;
         }
 
-        navigator.clipboard.writeText(text)
+        const combinedText = sVal + '\n\n' + oVal + '\n\n' + apVal;
+
+        navigator.clipboard.writeText(combinedText)
             .then(() => {
-                showToast('SOAPカルテをクリップボードにコピーしました！');
+                showToast('全パートのSOAPカルテを一括コピーしました！');
             })
             .catch(err => {
                 console.error('Copy failed', err);
                 showToast('コピーに失敗しました。');
             });
     }
+
+        
 
     // ==========================================================================
     // デモ・シミュレーション機能
@@ -729,7 +781,7 @@ Response must be pure JSON ONLY. No markdown wrapping. Output in Japanese.`;
                 currentSegmentText += segment[charIndex];
                 interimPreviewText.textContent = currentSegmentText;
                 charIndex++;
-                const delay = 30 + Math.random() * 60; // シミュレーション速度
+                const delay = 30 + Math.random() * 60;
                 simulationTimeoutId = setTimeout(typeCharacter, delay);
             } else {
                 if (transcriptTextarea.value) {
@@ -784,7 +836,9 @@ Response must be pure JSON ONLY. No markdown wrapping. Output in Japanese.`;
         if (isRecording) recognition.stop();
         
         transcriptTextarea.value = '';
-        copypasteTextarea.value = '';
+        document.getElementById('copypaste-s').value = '';
+        document.getElementById('copypaste-o').value = '';
+        document.getElementById('copypaste-ap').value = '';
         previewS.textContent = 'なし';
         previewPmh.textContent = 'なし';
         previewAllegy.textContent = 'なし';
@@ -818,6 +872,71 @@ Response must be pure JSON ONLY. No markdown wrapping. Output in Japanese.`;
     inputApiKey.addEventListener('input', saveSettings);
     inputOllamaUrl.addEventListener('input', saveSettings);
     inputOllamaModel.addEventListener('input', saveSettings);
+
+    // 接続テスト
+    const btnTestConnection = document.getElementById('btn-test-connection');
+    const connectionTestResult = document.getElementById('connection-test-result');
+
+    btnTestConnection.addEventListener('click', async () => {
+        const apiKey = inputApiKey.value.trim();
+        if (!apiKey) {
+            connectionTestResult.textContent = 'エラー: APIキーが空です。';
+            connectionTestResult.className = 'connection-test-result error';
+            return;
+        }
+
+        connectionTestResult.textContent = '接続中...';
+        connectionTestResult.className = 'connection-test-result';
+
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: "Hello" }] }]
+                })
+            });
+
+            if (response.ok) {
+                connectionTestResult.textContent = '接続成功！正常に動作しています。';
+                connectionTestResult.className = 'connection-test-result success';
+            } else {
+                const errData = await response.json();
+                connectionTestResult.textContent = `エラー: ${errData.error?.message || 'API呼出失敗'}`;
+                connectionTestResult.className = 'connection-test-result error';
+            }
+        } catch (error) {
+            connectionTestResult.textContent = `接続エラー: ${error.message}`;
+            connectionTestResult.className = 'connection-test-result error';
+        }
+    });
+
+    // パート別のコピー機能
+    document.querySelectorAll('.btn-copy-part').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const part = btn.dataset.part;
+            const textarea = document.getElementById(`copypaste-${part}`);
+            const text = textarea.value.trim();
+
+            if (!text) {
+                showToast('コピーする内容がありません。');
+                return;
+            }
+
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    showToast(`${part.toUpperCase()}パートをコピーしました！`);
+                })
+                .catch(err => {
+                    console.error('Copy failed', err);
+                    showToast('コピーに失敗しました。');
+                });
+        });
+    });
 
     // 疾患特化タブ切り替え
     tabBtns.forEach(btn => {
